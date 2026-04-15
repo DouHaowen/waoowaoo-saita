@@ -32,7 +32,7 @@ export default function SignIn() {
       } else if (result?.error) {
         setError(t('loginFailed'))
       } else {
-        router.push(buildAuthenticatedHomeTarget())
+        router.push(buildAuthenticatedHomeTarget().pathname)
         router.refresh()
       }
     } catch {
@@ -108,14 +108,14 @@ export default function SignIn() {
             <div className="mt-6 text-center">
               <p className="text-[var(--glass-text-secondary)]">
                 {t('noAccount')}{" "}
-                <Link href={{ pathname: '/auth/signup' }} className="text-[var(--glass-tone-info-fg)] hover:underline font-medium">
+                <Link href="/auth/signup" className="text-[var(--glass-tone-info-fg)] hover:underline font-medium">
                   {t('signupNow')}
                 </Link>
               </p>
             </div>
 
             <div className="mt-6 text-center">
-              <Link href={{ pathname: '/' }} className="text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] text-sm">
+              <Link href="/" className="text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] text-sm">
                 {t('backToHome')}
               </Link>
             </div>

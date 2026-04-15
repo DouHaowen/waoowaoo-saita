@@ -27,6 +27,7 @@ interface UsePanelImageRegenerationParams {
 
 export function usePanelImageRegeneration({
   localStoryboards,
+  setLocalStoryboards,
   submittingPanelImageIds,
   setSubmittingPanelImageIds,
   onSilentRefresh,
@@ -40,6 +41,19 @@ export function usePanelImageRegeneration({
       if (!force && submittingPanelImageIds.has(panelId)) return
 
       setSubmittingPanelImageIds((previous) => new Set(previous).add(panelId))
+      setLocalStoryboards((previousStoryboards) =>
+        previousStoryboards.map((storyboard) => ({
+          ...storyboard,
+          panels: (storyboard.panels || []).map((panel) =>
+            panel.id === panelId
+              ? {
+                  ...panel,
+                  imageTaskRunning: true,
+                }
+              : panel,
+          ),
+        })),
+      )
 
       let handoffToTaskState = false
       try {
@@ -83,6 +97,7 @@ export function usePanelImageRegeneration({
       refreshStoryboards,
       regeneratePanelMutation,
       selectPanelCandidateIndex,
+      setLocalStoryboards,
       setSubmittingPanelImageIds,
       submittingPanelImageIds,
     ],

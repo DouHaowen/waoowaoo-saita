@@ -184,3 +184,70 @@ describe('generate voice line with bailian provider', () => {
     expect(uploadObjectMock).not.toHaveBeenCalled()
   })
 })
+
+describe('generate voice line with fal provider', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    prismaMock.novelPromotionVoiceLine.findUnique.mockResolvedValue({
+      id: 'line-1',
+      episodeId: 'episode-1',
+      speaker: 'Narrator',
+      content: '你好，世界',
+      emotionPrompt: null,
+      emotionStrength: null,
+    })
+    prismaMock.novelPromotionProject.findUnique.mockResolvedValue({
+      characters: [],
+    })
+    prismaMock.novelPromotionEpisode.findUnique.mockResolvedValue({
+      speakerVoices: JSON.stringify({
+        Narrator: {
+          provider: 'fal',
+          audioUrl: '/api/storage/sign?key=voice%2Freference.wav&expires=7200',
+        },
+      }),
+    })
+
+    resolveModelSelectionOrSingleMock.mockResolvedValue({
+      provider: 'fal',
+      modelId: 'fal-ai/index-tts-2/text-to-speech',
+      modelKey: 'fal::fal-ai/index-tts-2/text-to-speech',
+      mediaType: 'audio',
+    })
+
+    getAudioApiKeyMock.mockResolvedValue('fal-key')
+    normalizeToBase64ForGenerationMock.mockResolvedValue('data:audio/wav;base64,ZmFrZQ==')
+    falSubscribeMock.mockResolvedValue({
+      data: {
+        audio: {
+          url: 'https://fal.example/audio.wav',
+        },
+      },
+    })
+
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => Uint8Array.from([1, 2, 3, 4]).buffer,
+    })) as unknown as typeof fetch
+  })
+
+  it('does not re-sign already signed reference audio urls', async () => {
+    await generateVoiceLine({
+      projectId: 'project-1',
+      episodeId: 'episode-1',
+      lineId: 'line-1',
+      userId: 'user-1',
+      audioModel: 'fal::fal-ai/index-tts-2/text-to-speech',
+    })
+
+    expect(getSignedUrlMock).not.toHaveBeenCalledWith(
+      '/api/storage/sign?key=voice%2Freference.wav&expires=7200',
+      expect.anything(),
+    )
+    expect(normalizeToBase64ForGenerationMock).toHaveBeenCalledWith(
+      '/api/storage/sign?key=voice%2Freference.wav&expires=7200',
+    )
+    expect(falSubscribeMock).toHaveBeenCalledTimes(1)
+  })
+})

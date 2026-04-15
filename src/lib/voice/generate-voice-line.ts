@@ -135,6 +135,9 @@ async function resolveReferenceAudioUrl(referenceAudioUrl: string): Promise<stri
   if (referenceAudioUrl.startsWith('http') || referenceAudioUrl.startsWith('data:')) {
     return referenceAudioUrl
   }
+  if (referenceAudioUrl.startsWith('/api/storage/sign')) {
+    return referenceAudioUrl
+  }
   if (referenceAudioUrl.startsWith('/m/')) {
     const storageKey = await resolveStorageKeyFromMediaValue(referenceAudioUrl)
     if (!storageKey) {

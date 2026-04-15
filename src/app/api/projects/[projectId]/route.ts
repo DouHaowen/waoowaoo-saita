@@ -10,6 +10,11 @@ import {
   collectProjectBailianManagedVoiceIds,
   cleanupUnreferencedBailianVoices,
 } from '@/lib/providers/bailian'
+import { attachMediaFieldsToProject } from '@/lib/media/attach'
+
+function readAssetKind(value: Record<string, unknown>): string {
+  return typeof value.assetKind === 'string' ? value.assetKind : 'location'
+}
 
 // GET - 获取项目详情
 export const GET = apiHandler(async (
@@ -22,7 +27,6 @@ export const GET = apiHandler(async (
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
 
-  // 只获取基础项目信息，不包含模式特定数据
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -44,11 +48,45 @@ export const GET = apiHandler(async (
     data: { lastAccessedAt: new Date() }
   }).catch(err => _ulogError('更新访问时间失败:', err))
 
-  // 这个 API 只返回基础项目信息
-  // 项目附属业务数据通过各自的 API 获取（如 /api/novel-promotion/[projectId]）
   const projectWithSignedUrls = addSignedUrlsToProject(project)
+  const novelPromotionData = await prisma.novelPromotionProject.findUnique({
+    where: { projectId },
+    include: {
+      episodes: {
+        orderBy: { episodeNumber: 'asc' }
+      },
+      characters: {
+        include: {
+          appearances: true
+        },
+        orderBy: { createdAt: 'asc' }
+      },
+      locations: {
+        include: {
+          images: true
+        },
+        orderBy: { createdAt: 'asc' }
+      }
+    }
+  })
 
-  return NextResponse.json({ project: projectWithSignedUrls })
+  if (!novelPromotionData) {
+    return NextResponse.json({ project: projectWithSignedUrls })
+  }
+
+  const novelPromotionDataWithSignedUrls = await attachMediaFieldsToProject(novelPromotionData)
+  const filteredNovelPromotionData = {
+    ...novelPromotionDataWithSignedUrls,
+    locations: (novelPromotionDataWithSignedUrls.locations || []).filter((item) => readAssetKind(item) !== 'prop'),
+    props: (novelPromotionDataWithSignedUrls.locations || []).filter((item) => readAssetKind(item) === 'prop'),
+  }
+
+  return NextResponse.json({
+    project: {
+      ...projectWithSignedUrls,
+      novelPromotionData: filteredNovelPromotionData,
+    }
+  })
 })
 
 // PATCH - 更新项目配置

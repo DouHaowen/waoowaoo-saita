@@ -96,6 +96,10 @@
         "generationModeOptions": [
           "normal"
         ],
+        "generateAudioOptions": [
+          true,
+          false
+        ],
         "durationOptions": [
           2,
           3,
@@ -115,7 +119,7 @@
           "1080p"
         ],
         "firstlastframe": false,
-        "supportGenerateAudio": false
+        "supportGenerateAudio": true
       }
     }
   },

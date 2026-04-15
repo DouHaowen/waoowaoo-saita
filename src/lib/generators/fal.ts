@@ -202,11 +202,13 @@ export class FalVideoGenerator extends BaseVideoGenerator {
             duration,
             resolution,
             aspectRatio,
+            generateAudio,
             modelId = 'fal-wan25'
         } = options as {
             duration?: number
             resolution?: string
             aspectRatio?: string
+            generateAudio?: boolean
             modelId?: string
             provider?: string
             modelKey?: string
@@ -219,6 +221,7 @@ export class FalVideoGenerator extends BaseVideoGenerator {
             'duration',
             'resolution',
             'aspectRatio',
+            'generateAudio',
         ])
         for (const [key, value] of Object.entries(options)) {
             if (value === undefined) continue
@@ -266,6 +269,9 @@ export class FalVideoGenerator extends BaseVideoGenerator {
                 }
                 break
             case 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video':
+                if (generateAudio === true) {
+                    throw new Error(`FAL_VIDEO_OPTION_UNSUPPORTED: generateAudio for ${modelId}`)
+                }
                 input = {
                     image_url: imageUrl,
                     prompt,
@@ -275,13 +281,24 @@ export class FalVideoGenerator extends BaseVideoGenerator {
                 }
                 break
             case 'fal-ai/kling-video/v3/standard/image-to-video':
-            case 'fal-ai/kling-video/v3/pro/image-to-video':
+                if (generateAudio === true) {
+                    throw new Error(`FAL_VIDEO_OPTION_UNSUPPORTED: generateAudio for ${modelId}`)
+                }
                 input = {
                     start_image_url: imageUrl,
                     prompt,
                     ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
                     ...(typeof duration === 'number' ? { duration: String(duration) } : {}),
                     generate_audio: false,
+                }
+                break
+            case 'fal-ai/kling-video/v3/pro/image-to-video':
+                input = {
+                    start_image_url: imageUrl,
+                    prompt,
+                    ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+                    ...(typeof duration === 'number' ? { duration: String(duration) } : {}),
+                    ...(typeof generateAudio === 'boolean' ? { generate_audio: generateAudio } : {}),
                 }
                 break
             default:

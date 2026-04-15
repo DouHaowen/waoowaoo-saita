@@ -89,6 +89,38 @@ describe('FalVideoGenerator kling presets', () => {
     expect(payload.start_image_url).toBe('https://example.com/start.png')
     expect(payload.image_url).toBeUndefined()
     expect(payload.aspect_ratio).toBe('16:9')
+    if (modelId === 'fal-ai/kling-video/v3/pro/image-to-video') {
+      expect(payload.generate_audio).toBeUndefined()
+      return
+    }
     expect(payload.generate_audio).toBe(false)
+  })
+
+  it('passes native audio toggle through for Kling 3 Pro', async () => {
+    const generator = new FalVideoGenerator()
+    await generator.generate({
+      userId: 'user-1',
+      imageUrl: 'https://example.com/start.png',
+      prompt: 'cat anchor delivering breaking news with matching background audio',
+      options: {
+        modelId: 'fal-ai/kling-video/v3/pro/image-to-video',
+        duration: 5,
+        aspectRatio: '9:16',
+        generateAudio: true,
+      },
+    })
+
+    const submitCall = asyncSubmitMock.submitFalTask.mock.calls.at(0) as
+      | [string, Record<string, unknown>, string]
+      | undefined
+    expect(submitCall).toBeTruthy()
+    if (!submitCall) {
+      throw new Error('submitFalTask should be called')
+    }
+
+    const payload = submitCall[1]
+    expect(payload.start_image_url).toBe('https://example.com/start.png')
+    expect(payload.generate_audio).toBe(true)
+    expect(payload.aspect_ratio).toBe('9:16')
   })
 })

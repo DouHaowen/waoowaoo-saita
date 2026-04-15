@@ -61,7 +61,7 @@ export default function HomePage() {
   useEffect(() => {
     if (status === 'loading') return
     if (!session) {
-      router.push({ pathname: '/auth/signin' })
+      router.push('/auth/signin')
     }
   }, [session, status, router])
 

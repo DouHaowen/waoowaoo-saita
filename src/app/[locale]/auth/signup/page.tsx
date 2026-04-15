@@ -52,7 +52,7 @@ export default function SignUp() {
       if (response.ok) {
         setSuccess(t('signupSuccess'))
         setTimeout(() => {
-          router.push({ pathname: '/auth/signin' })
+          router.push('/auth/signin')
         }, 2000)
       } else {
         setError(data.message || t('signupFailed'))
@@ -154,14 +154,14 @@ export default function SignUp() {
             <div className="mt-6 text-center">
               <p className="text-[var(--glass-text-secondary)]">
                 {t('hasAccount')}{" "}
-                <Link href={{ pathname: '/auth/signin' }} className="text-[var(--glass-tone-info-fg)] hover:underline font-medium">
+                <Link href="/auth/signin" className="text-[var(--glass-tone-info-fg)] hover:underline font-medium">
                   {t('signinNow')}
                 </Link>
               </p>
             </div>
 
             <div className="mt-6 text-center">
-              <Link href={{ pathname: '/' }} className="text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] text-sm">
+              <Link href="/" className="text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] text-sm">
                 {t('backToHome')}
               </Link>
             </div>

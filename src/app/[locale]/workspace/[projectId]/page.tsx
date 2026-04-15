@@ -231,7 +231,7 @@ export default function ProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.projectData(projectId) })
 
       // 刷新后重新获取最新的剧集列表
-      const res = await apiFetch(`/api/projects/${projectId}/data`)
+      const res = await apiFetch(`/api/projects/${projectId}`)
       const data = await res.json()
       // API 返回结构是 { project: { novelPromotionData: { episodes: [...] } } }
       const newEpisodes = data?.project?.novelPromotionData?.episodes || []

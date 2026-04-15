@@ -42,7 +42,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Link href={session ? buildAuthenticatedHomeTarget() : { pathname: '/' }} className="group">
+              <Link href={session ? buildAuthenticatedHomeTarget().pathname : '/'} className="group">
                 <Image
                   src="/logo-small.png?v=1"
                   alt={tc('appName')}
@@ -104,21 +104,21 @@ export default function Navbar() {
               ) : session ? (
                 <>
                   <Link
-                    href={{ pathname: '/workspace' }}
+                    href="/workspace"
                     className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
                   >
                     <AppIcon name="monitor" className="w-4 h-4" />
                     {t('workspace')}
                   </Link>
                   <Link
-                    href={{ pathname: '/workspace/asset-hub' }}
+                    href="/workspace/asset-hub"
                     className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
                   >
                     <AppIcon name="folderHeart" className="w-4 h-4" />
                     {t('assetHub')}
                   </Link>
                   <Link
-                    href={{ pathname: '/profile' }}
+                    href="/profile"
                     className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
                     title={t('profile')}
                   >
@@ -140,13 +140,13 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link
-                    href={{ pathname: '/auth/signin' }}
+                    href="/auth/signin"
                     className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors"
                   >
                     {t('signin')}
                   </Link>
                   <Link
-                    href={{ pathname: '/auth/signup' }}
+                    href="/auth/signup"
                     className="glass-btn-base glass-btn-primary px-4 py-2 text-sm font-medium"
                   >
                     {t('signup')}

@@ -70,7 +70,7 @@ export function useProject(projectId: string) {
     try {
       // 刷新项目数据
       if (scope === 'all' || scope === 'project') {
-        const res = await apiFetch(`/api/projects/${projectId}/data`)
+        const res = await apiFetch(`/api/projects/${projectId}`)
         if (!res.ok) {
           const errorData = await res.json()
           throw new Error(errorData.error || 'Failed to load project')

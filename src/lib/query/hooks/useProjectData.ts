@@ -21,7 +21,7 @@ export function useProjectData(projectId: string | null) {
         queryKey: queryKeys.projectData(projectId || ''),
         queryFn: async () => {
             if (!projectId) throw new Error('Project ID is required')
-            const res = await apiFetch(`/api/projects/${projectId}/data`)
+            const res = await apiFetch(`/api/projects/${projectId}`)
             if (!res.ok) {
                 const error = await res.json()
                 throw new Error(resolveTaskErrorMessage(error, 'Failed to load project'))

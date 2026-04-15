@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto'
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { logInfo as _ulogInfo } from '@/lib/logging/core'
 import { normalizeToOriginalMediaUrl } from '@/lib/media/outbound-image'
+import { uploadObject } from '@/lib/storage'
 import { toFetchableUrl } from '@/lib/storage/utils'
 import type { LipSyncParams } from '@/lib/lipsync/types'
 
 const LIPSYNC_MIN_AUDIO_DURATION_MS = 2000
+const execFileAsync = promisify(execFile)
 
 export type LipSyncProviderKey = 'fal' | 'vidu' | 'bailian'
 
@@ -299,6 +306,34 @@ function parseMp4DurationMs(buffer: Buffer): number {
   throw new Error('LIPSYNC_VIDEO_DURATION_PARSE_FAILED')
 }
 
+function mp4HasEmbeddedAudio(buffer: Buffer): boolean {
+  return buffer.includes(Buffer.from('soun')) || buffer.includes(Buffer.from('mp4a'))
+}
+
+async function stripMp4AudioTrack(buffer: Buffer): Promise<Buffer> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'waoowaoo-lipsync-'))
+  const inputPath = path.join(tempDir, `${randomUUID()}.mp4`)
+  const outputPath = path.join(tempDir, `${randomUUID()}-silent.mp4`)
+
+  try {
+    await fs.writeFile(inputPath, buffer)
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      '-c:v',
+      'copy',
+      '-an',
+      outputPath,
+    ])
+    return await fs.readFile(outputPath)
+  } catch (error) {
+    throw new Error(`LIPSYNC_VIDEO_STRIP_AUDIO_FAILED: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true })
+  }
+}
+
 async function resolveVideoDurationMs(params: LipSyncParams): Promise<number | null> {
   const knownDuration = normalizeDurationMs(params.videoDurationMs)
   if (knownDuration) return knownDuration
@@ -330,7 +365,18 @@ export async function preprocessLipSyncParams(
 ): Promise<LipSyncPreprocessResult> {
   const inputAudioDurationMs = normalizeDurationMs(params.audioDurationMs)
   const videoDurationMs = await resolveVideoDurationMs(params)
+  let videoUrl = params.videoUrl
   let audioDurationMs = inputAudioDurationMs
+
+  if (context.providerKey === 'fal') {
+    const videoBinary = await loadBinaryFromInput(params.videoUrl)
+    if (videoBinary.mimeType.includes('mp4') && mp4HasEmbeddedAudio(videoBinary.buffer)) {
+      const silentVideo = await stripMp4AudioTrack(videoBinary.buffer)
+      const storageKey = `video/temp/lip-sync-silent/${randomUUID()}.mp4`
+      await uploadObject(silentVideo, storageKey, 1, 'video/mp4')
+      videoUrl = storageKey
+    }
+  }
 
   const needsDurationProbe = audioDurationMs === null
   const shouldPadByKnown = audioDurationMs !== null && audioDurationMs < LIPSYNC_MIN_AUDIO_DURATION_MS
@@ -340,6 +386,7 @@ export async function preprocessLipSyncParams(
     return {
       params: {
         ...params,
+        videoUrl,
         videoDurationMs: videoDurationMs ?? params.videoDurationMs,
       },
       paddedAudio: false,
@@ -380,6 +427,7 @@ export async function preprocessLipSyncParams(
     return {
       params: {
         ...params,
+        videoUrl,
         audioDurationMs,
         videoDurationMs,
       },
@@ -395,6 +443,7 @@ export async function preprocessLipSyncParams(
   return {
     params: {
       ...params,
+      videoUrl,
       audioUrl: providerAudioInput,
       audioDurationMs,
       videoDurationMs,

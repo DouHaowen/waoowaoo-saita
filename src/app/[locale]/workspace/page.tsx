@@ -101,7 +101,7 @@ export default function WorkspacePage() {
   useEffect(() => {
     if (status === 'loading') return
     if (!session) {
-      router.push({ pathname: '/auth/signin' })
+      router.push('/auth/signin')
       return
     }
   }, [session, status, router])
@@ -206,7 +206,7 @@ export default function WorkspacePage() {
 
         if (shouldOpenModelSetup) {
           alert(t('analysisModelRequiredAfterCreate'))
-          router.push({ pathname: '/profile' })
+          router.push('/profile')
         }
       } else {
         setCreateError(await readApiErrorMessage(response, t('createFailed')))
