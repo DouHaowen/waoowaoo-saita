@@ -62,7 +62,10 @@ services:
 
   # ==================== App (Next.js + Workers) ====================
   app:
-    image: ghcr.io/saturndec/waoowaoo:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: waoowaoo-local:latest
     container_name: waoowaoo-app
     restart: unless-stopped
     environment:
@@ -84,6 +87,8 @@ services:
       MINIO_FORCE_PATH_STYLE: "true"
       # 外部访问地址（浏览器实际访问）
       NEXTAUTH_URL: "http://localhost:13000"
+      # 外部模型拉取本项目素材时使用的公网地址；服务器部署时改成可公网访问的域名或 IP。
+      PUBLIC_MEDIA_BASE_URL: "${PUBLIC_MEDIA_BASE_URL:-http://localhost:13000}"
       # 容器内自调用地址（服务端 fetch 自己的 API / 文件）
       INTERNAL_APP_URL: "http://127.0.0.1:3000"
       NEXTAUTH_SECRET: "waoowaoo-default-secret-2026"

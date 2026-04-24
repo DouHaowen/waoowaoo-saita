@@ -6063,5 +6063,14 @@
       "mode": "flat",
       "flatAmount": 0.5
     }
+  },
+  {
+    "apiType": "lip-sync",
+    "provider": "latentsync",
+    "modelId": "latentsync-1.6",
+    "pricing": {
+      "mode": "flat",
+      "flatAmount": 0.08
+    }
   }
 ]

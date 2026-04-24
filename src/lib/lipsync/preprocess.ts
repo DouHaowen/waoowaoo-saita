@@ -13,7 +13,7 @@ import type { LipSyncParams } from '@/lib/lipsync/types'
 const LIPSYNC_MIN_AUDIO_DURATION_MS = 2000
 const execFileAsync = promisify(execFile)
 
-export type LipSyncProviderKey = 'fal' | 'vidu' | 'bailian'
+export type LipSyncProviderKey = 'fal' | 'vidu' | 'bailian' | 'latentsync'
 
 interface LoadedBinary {
   buffer: Buffer
@@ -349,7 +349,7 @@ async function toProviderAudioInput(
   providerKey: LipSyncProviderKey,
   buffer: Buffer,
 ): Promise<string> {
-  if (providerKey === 'vidu') {
+  if (providerKey === 'vidu' || providerKey === 'latentsync') {
     const { uploadObject, getSignedUrl } = await import('@/lib/storage')
     const storageKey = `voice/temp/lip-sync-preprocessed/${randomUUID()}.wav`
     await uploadObject(buffer, storageKey, 1, 'audio/wav')
@@ -368,7 +368,7 @@ export async function preprocessLipSyncParams(
   let videoUrl = params.videoUrl
   let audioDurationMs = inputAudioDurationMs
 
-  if (context.providerKey === 'fal') {
+  if (context.providerKey === 'fal' || context.providerKey === 'latentsync') {
     const videoBinary = await loadBinaryFromInput(params.videoUrl)
     if (videoBinary.mimeType.includes('mp4') && mp4HasEmbeddedAudio(videoBinary.buffer)) {
       const silentVideo = await stripMp4AudioTrack(videoBinary.buffer)

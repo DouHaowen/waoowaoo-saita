@@ -52,19 +52,35 @@ export async function submitFalTask(endpoint: string, input: Record<string, unkn
 
 /**
  * 解析 FAL 端点 ID
- * 根据官方客户端逻辑，端点格式为: owner/alias/path
- * 例如: fal-ai/veo3.1/fast/image-to-video
+ * 端点格式为: owner/alias/path
+ * 例如: fal-ai/kling-video/lipsync/audio-to-video
  *   -> owner = fal-ai
- *   -> alias = veo3.1
- *   -> path = fast/image-to-video (状态查询时忽略)
+ *   -> alias = kling-video
+ *   -> path = lipsync/audio-to-video
  */
 function parseFalEndpointId(endpoint: string): { owner: string; alias: string; path?: string } {
-    const parts = endpoint.split('/')
+    const parts = endpoint.replace(/^\/+|\/+$/g, '').split('/')
     return {
         owner: parts[0],
         alias: parts[1],
         path: parts.slice(2).join('/') || undefined
     }
+}
+
+function getFalStatusEndpointCandidates(endpoint: string): string[] {
+    const normalizedEndpoint = endpoint.replace(/^\/+|\/+$/g, '')
+    const candidates = [normalizedEndpoint]
+    const parsed = parseFalEndpointId(normalizedEndpoint)
+    const baseEndpoint = [parsed.owner, parsed.alias].filter(Boolean).join('/')
+
+    // Most FAL queue endpoints need the full endpoint path for status/response URLs.
+    // Keep the old owner/alias fallback only for backward compatibility with any
+    // legacy models that were registered that way.
+    if (parsed.path && baseEndpoint && baseEndpoint !== normalizedEndpoint) {
+        candidates.push(baseEndpoint)
+    }
+
+    return candidates
 }
 
 /**
@@ -84,27 +100,38 @@ export async function queryFalStatus(endpoint: string, requestId: string, apiKey
         throw new Error('请配置 FAL API Key')
     }
 
-    // 🔥 根据 FAL 官方客户端逻辑解析端点 ID
-    // 端点格式: owner/alias/path (path 部分在状态查询时忽略)
-    // 例如: fal-ai/veo3.1/fast/image-to-video -> fal-ai/veo3.1
-    const parsed = parseFalEndpointId(endpoint)
-    const baseEndpoint = `${parsed.owner}/${parsed.alias}`
+    let response: Response | null = null
+    let statusEndpoint = endpoint
 
-    if (parsed.path) {
-        _ulogInfo(`[FAL Status] 解析端点 ${endpoint} -> ${baseEndpoint} (忽略路径: ${parsed.path})`)
+    for (const candidate of getFalStatusEndpointCandidates(endpoint)) {
+        const statusUrl = buildFalQueueUrl(`${candidate}/requests/${requestId}/status?logs=0`)
+
+        // FAL 状态查询使用 GET 方法
+        const candidateResponse = await fetch(statusUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Key ${apiKey}`
+            }
+        })
+
+        if (candidateResponse.ok) {
+            response = candidateResponse
+            statusEndpoint = candidate
+            break
+        }
+
+        const errorText = await candidateResponse.text().catch(() => '')
+        _ulogError(`[FAL Status] 状态查询失败 (${candidateResponse.status}) endpoint=${candidate}: ${errorText.slice(0, 300)}`)
+
+        // Only try the owner/alias fallback when the full path does not exist.
+        if (candidateResponse.status !== 404) {
+            response = candidateResponse
+            statusEndpoint = candidate
+            break
+        }
     }
 
-    const statusUrl = buildFalQueueUrl(`${baseEndpoint}/requests/${requestId}/status?logs=0`)
-
-    // FAL 状态查询使用 GET 方法
-    const response = await fetch(statusUrl, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Key ${apiKey}`
-        }
-    })
-
-    if (!response.ok) {
+    if (!response?.ok) {
         return {
             status: 'IN_PROGRESS',
             completed: false,
@@ -116,7 +143,7 @@ export async function queryFalStatus(endpoint: string, requestId: string, apiKey
     const status = data.status as 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
 
     // 🔥 诊断日志：查看 FAL 返回的真实状态
-    _ulogInfo(`[FAL Status] requestId=${requestId.slice(0, 16)}... 状态=${status}`)
+    _ulogInfo(`[FAL Status] endpoint=${statusEndpoint} requestId=${requestId.slice(0, 16)}... 状态=${status}`)
 
     if (status === 'COMPLETED') {
         // 🔥 尝试获取完整结果

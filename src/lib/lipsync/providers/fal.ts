@@ -44,7 +44,7 @@ function getProviderPullBaseUrl(): string {
   return getPublicBaseUrl().trim().replace(/\/+$/, '')
 }
 
-async function normalizeFalProviderInputUrl(rawUrl: string, field: 'video_url' | 'audio_url'): Promise<string> {
+export async function normalizeFalProviderInputUrl(rawUrl: string, field: 'video_url' | 'audio_url'): Promise<string> {
   const trimmed = readTrimmedString(rawUrl)
   if (!trimmed) {
     throw new Error(`LIPSYNC_INPUT_URL_INVALID: ${field}`)

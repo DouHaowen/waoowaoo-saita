@@ -159,6 +159,7 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video', name: 'Kling 2.5 Turbo Pro', type: 'video', provider: 'fal' },
     { modelId: 'fal-ai/kling-video/v3/standard/image-to-video', name: 'Kling 3 Standard', type: 'video', provider: 'fal' },
     { modelId: 'fal-ai/kling-video/v3/pro/image-to-video', name: 'Kling 3 Pro', type: 'video', provider: 'fal' },
+    { modelId: 'ltx-2.3', name: 'LTX-2.3', type: 'video', provider: 'ltx' },
 
     // 音频模型
     { modelId: 'fal-ai/index-tts-2/text-to-speech', name: 'IndexTTS 2', type: 'audio', provider: 'fal' },
@@ -168,6 +169,7 @@ export const PRESET_MODELS: PresetModel[] = [
     { modelId: 'fal-ai/kling-video/lipsync/audio-to-video', name: 'Kling Lip Sync', type: 'lipsync', provider: 'fal' },
     { modelId: 'vidu-lipsync', name: 'Vidu Lip Sync', type: 'lipsync', provider: 'vidu' },
     { modelId: 'videoretalk', name: 'VideoRetalk Lip Sync', type: 'lipsync', provider: 'bailian' },
+    { modelId: 'latentsync-1.6', name: 'LatentSync 1.6', type: 'lipsync', provider: 'latentsync' },
 
     // MiniMax 视频模型
     { modelId: 'minimax-hailuo-2.3', name: 'Hailuo 2.3', type: 'video', provider: 'minimax' },
@@ -205,6 +207,8 @@ export const PRESET_PROVIDERS: Omit<Provider, 'apiKey' | 'hasApiKey'>[] = [
     { id: 'minimax', name: 'MiniMax Hailuo', baseUrl: 'https://api.minimaxi.com/v1' },
     { id: 'vidu', name: 'Vidu' },
     { id: 'fal', name: 'FAL' },
+    { id: 'ltx', name: 'Local 5090 LTX' },
+    { id: 'latentsync', name: 'Local 5090 LatentSync' },
 ]
 
 const ZH_PROVIDER_NAME_MAP: Record<string, string> = {
@@ -213,6 +217,8 @@ const ZH_PROVIDER_NAME_MAP: Record<string, string> = {
     vidu: '生数科技 Vidu',
     bailian: '阿里云百炼',
     siliconflow: '硅基流动',
+    ltx: '本地 5090 LTX',
+    latentsync: '本地 5090 LatentSync',
 }
 
 function isZhLocale(locale?: string): boolean {
@@ -387,6 +393,22 @@ export const PROVIDER_TUTORIALS: ProviderTutorial[] = [
             {
                 text: 'siliconflow_step1',
                 url: 'https://cloud.siliconflow.cn/account/ak'
+            }
+        ]
+    },
+    {
+        providerId: 'ltx',
+        steps: [
+            {
+                text: '填写本地 5090 LTX2.3 API Token 与 Base URL'
+            }
+        ]
+    },
+    {
+        providerId: 'latentsync',
+        steps: [
+            {
+                text: '填写本地 5090 LatentSync API Token 与 Base URL'
             }
         ]
     },

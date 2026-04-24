@@ -9,6 +9,7 @@ RUN npm ci
 # ==================== Stage 2: Build ====================
 FROM node:20-alpine AS builder
 WORKDIR /app
+ENV SKIP_REDIS_CONNECT=true
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

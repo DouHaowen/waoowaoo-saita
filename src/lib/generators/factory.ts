@@ -20,6 +20,7 @@ import { GoogleVeoVideoGenerator } from './video/google'
 import { OpenAICompatibleVideoGenerator } from './video'
 import { MinimaxVideoGenerator } from './minimax'
 import { ViduVideoGenerator } from './vidu'
+import { LtxVideoGenerator } from './ltx'
 import { getProviderKey } from '@/lib/api-config'
 import {
     BailianAudioGenerator,
@@ -90,6 +91,8 @@ export function createVideoGenerator(provider: string): VideoGenerator {
             return new MinimaxVideoGenerator()
         case 'vidu':
             return new ViduVideoGenerator()
+        case 'ltx':
+            return new LtxVideoGenerator()
         case 'openai-compatible':
             return new OpenAICompatibleVideoGenerator(provider)
         case 'bailian':

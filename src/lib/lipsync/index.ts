@@ -3,6 +3,7 @@ import { getProviderKey, resolveModelSelectionOrSingle } from '@/lib/api-config'
 import { preprocessLipSyncParams, type LipSyncProviderKey } from '@/lib/lipsync/preprocess'
 import { submitBailianLipSync } from '@/lib/lipsync/providers/bailian'
 import { submitFalLipSync } from '@/lib/lipsync/providers/fal'
+import { submitLatentSyncLipSync } from '@/lib/lipsync/providers/latentsync'
 import { submitViduLipSync } from '@/lib/lipsync/providers/vidu'
 import type { LipSyncParams, LipSyncResult, LipSyncSubmitContext } from '@/lib/lipsync/types'
 
@@ -20,7 +21,7 @@ function createSubmitContext(
 
 function resolveProviderKey(value: string): LipSyncProviderKey {
   const providerKey = value.toLowerCase()
-  if (providerKey === 'fal' || providerKey === 'vidu' || providerKey === 'bailian') {
+  if (providerKey === 'fal' || providerKey === 'vidu' || providerKey === 'bailian' || providerKey === 'latentsync') {
     return providerKey
   }
   throw new Error(`LIPSYNC_PROVIDER_UNSUPPORTED: ${value}`)
@@ -54,6 +55,12 @@ export async function generateLipSync(
     if (providerKey === 'bailian') {
       const result = await submitBailianLipSync(preprocessedParams, context)
       _ulogInfo(`[LipSync Async] Bailian 任务已提交: ${result.requestId}`)
+      return result
+    }
+
+    if (providerKey === 'latentsync') {
+      const result = await submitLatentSyncLipSync(preprocessedParams, context)
+      _ulogInfo(`[LipSync Async] LatentSync 任务已提交: ${result.requestId}`)
       return result
     }
 

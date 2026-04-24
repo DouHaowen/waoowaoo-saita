@@ -1140,5 +1140,29 @@
         "supportGenerateAudio": false
       }
     }
+  },
+  {
+    "modelType": "video",
+    "provider": "ltx",
+    "modelId": "ltx-2.3",
+    "capabilities": {
+      "video": {
+        "generationModeOptions": [
+          "normal"
+        ],
+        "generateAudioOptions": [
+          false,
+          true
+        ],
+        "durationOptions": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "firstlastframe": false,
+        "supportGenerateAudio": true
+      }
+    }
   }
 ]

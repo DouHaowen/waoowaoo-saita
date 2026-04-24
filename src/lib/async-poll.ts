@@ -48,7 +48,7 @@ function getErrorMessage(error: unknown): string {
  * 解析 externalId 获取 provider、type 和请求信息
  */
 export function parseExternalId(externalId: string): {
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'LTX' | 'WAN' | 'LATENTSYNC' | 'UNKNOWN'
     type: 'VIDEO' | 'IMAGE' | 'BATCH' | 'UNKNOWN'
     endpoint?: string
     requestId: string
@@ -210,9 +210,41 @@ export function parseExternalId(externalId: string): {
         }
     }
 
+    if (externalId.startsWith('LTX:')) {
+        const parts = externalId.split(':')
+        const type = parts[1]
+        const providerToken = parts[2]
+        const requestId = parts.slice(3).join(':')
+        if (type !== 'VIDEO' || !providerToken || !requestId) {
+            throw new Error(`无效 LTX externalId: "${externalId}"，应为 LTX:VIDEO:providerToken:jobId`)
+        }
+        return {
+            provider: 'LTX',
+            type: 'VIDEO',
+            providerToken,
+            requestId,
+        }
+    }
+
+    if (externalId.startsWith('LATENTSYNC:')) {
+        const parts = externalId.split(':')
+        const type = parts[1]
+        const providerToken = parts[2]
+        const requestId = parts.slice(3).join(':')
+        if (type !== 'VIDEO' || !providerToken || !requestId) {
+            throw new Error(`无效 LATENTSYNC externalId: "${externalId}"，应为 LATENTSYNC:VIDEO:providerToken:jobId`)
+        }
+        return {
+            provider: 'LATENTSYNC',
+            type: 'VIDEO',
+            providerToken,
+            requestId,
+        }
+    }
+
     throw new Error(
         `无法识别的 externalId 格式: "${externalId}". ` +
-        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
+        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId, LTX:VIDEO:providerToken:jobId, LATENTSYNC:VIDEO:providerToken:jobId`
     )
 }
 
@@ -252,10 +284,24 @@ export async function pollAsyncTask(
             return await pollBailianTask(parsed.requestId, userId)
         case 'SILICONFLOW':
             return await pollSiliconFlowTask(parsed.requestId)
+        case 'LTX':
+            return await pollLtxTask(parsed.requestId, userId, parsed.providerToken)
+        case 'LATENTSYNC':
+            return await pollLatentSyncTask(parsed.requestId, userId, parsed.providerToken)
         default:
             // 🔥 移除 fallback：未知 provider 直接抛出错误
             throw new Error(`未知的 Provider: ${parsed.provider}`)
     }
+}
+
+function decodeProviderToken(token?: string): string {
+    if (!token) {
+        throw new Error('LTX_PROVIDER_TOKEN_MISSING')
+    }
+    if (!token.startsWith('b64_')) {
+        throw new Error(`LTX_PROVIDER_TOKEN_INVALID: ${token}`)
+    }
+    return Buffer.from(token.slice(4), 'base64url').toString('utf8')
 }
 
 function decodeProviderId(token: string): string {
@@ -944,13 +990,161 @@ async function queryViduTaskStatus(
     }
 }
 
+async function pollLtxTask(
+    jobId: string,
+    userId: string,
+    providerToken?: string,
+): Promise<PollResult> {
+    const providerId = decodeProviderToken(providerToken)
+    const { apiKey, baseUrl } = await getProviderConfig(userId, providerId)
+    const endpointBase = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : ''
+    if (!endpointBase) {
+        return {
+            status: 'failed',
+            error: 'LTX_BASE_URL_REQUIRED',
+        }
+    }
+
+    try {
+        const response = await fetch(
+            `${endpointBase}/jobs/${encodeURIComponent(jobId)}?token=${encodeURIComponent(apiKey)}`,
+            { method: 'GET' },
+        )
+        const rawText = await response.text().catch(() => '')
+        const payload = rawText.trim() ? JSON.parse(rawText) as Record<string, unknown> : {}
+
+        if (!response.ok) {
+            const detail = typeof payload.detail === 'string' ? payload.detail : rawText.trim()
+            return {
+                status: 'failed',
+                error: detail || `LTX job query failed (${response.status})`,
+            }
+        }
+
+        const status = typeof payload.status === 'string' ? payload.status : 'pending'
+        const videoUrl = typeof payload.videoUrl === 'string'
+            ? (payload.videoUrl.startsWith('http')
+                ? payload.videoUrl
+                : `${endpointBase}${payload.videoUrl.startsWith('/') ? '' : '/'}${payload.videoUrl}`)
+            : undefined
+
+        if (status === 'completed') {
+            return {
+                status: 'completed',
+                videoUrl,
+                resultUrl: videoUrl,
+            }
+        }
+        if (status === 'failed') {
+            return {
+                status: 'failed',
+                error: typeof payload.error === 'string' ? payload.error : 'LTX generation failed',
+            }
+        }
+
+        return { status: 'pending' }
+    } catch (error: unknown) {
+        return {
+            status: 'failed',
+            error: `LTX query failed: ${getErrorMessage(error)}`,
+        }
+    }
+}
+
+async function pollLatentSyncTask(
+    jobId: string,
+    userId: string,
+    providerToken?: string,
+): Promise<PollResult> {
+    const providerId = decodeProviderToken(providerToken)
+    const { apiKey, baseUrl } = await getProviderConfig(userId, providerId)
+    const endpointBase = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : ''
+    if (!endpointBase) {
+        return {
+            status: 'failed',
+            error: 'LATENTSYNC_BASE_URL_REQUIRED',
+        }
+    }
+
+    try {
+        const response = await fetch(
+            `${endpointBase}/jobs/${encodeURIComponent(jobId)}?token=${encodeURIComponent(apiKey)}`,
+            { method: 'GET' },
+        )
+        const rawText = await response.text().catch(() => '')
+        const payload = rawText.trim() ? JSON.parse(rawText) as Record<string, unknown> : {}
+
+        if (!response.ok) {
+            const detail = typeof payload.detail === 'string' ? payload.detail : rawText.trim()
+            return {
+                status: 'failed',
+                error: detail || `LatentSync job query failed (${response.status})`,
+            }
+        }
+
+        const status = typeof payload.status === 'string' ? payload.status : 'pending'
+        const rawVideoUrl = typeof payload.videoUrl === 'string'
+            ? payload.videoUrl
+            : typeof payload.outputUrl === 'string'
+                ? payload.outputUrl
+                : ''
+        const videoUrl = rawVideoUrl
+            ? normalizeLatentSyncResultUrl(rawVideoUrl, endpointBase)
+            : undefined
+
+        if (status === 'completed') {
+            return {
+                status: 'completed',
+                videoUrl,
+                resultUrl: videoUrl,
+            }
+        }
+        if (status === 'failed') {
+            return {
+                status: 'failed',
+                error: typeof payload.error === 'string' ? payload.error : 'LatentSync generation failed',
+            }
+        }
+
+        return { status: 'pending' }
+    } catch (error: unknown) {
+        return {
+            status: 'failed',
+            error: `LatentSync query failed: ${getErrorMessage(error)}`,
+        }
+    }
+}
+
+function normalizeLatentSyncResultUrl(value: string, endpointBase: string): string {
+    const input = value.trim()
+    if (!input) return input
+    if (!input.startsWith('http')) {
+        return `${endpointBase}${input.startsWith('/') ? '' : '/'}${input}`
+    }
+
+    try {
+        const url = new URL(input)
+        const endpoint = new URL(endpointBase)
+        if (endpoint.protocol === 'http:' && endpoint.hostname.startsWith('172.')) {
+            const mediaIndex = url.pathname.indexOf('/media/')
+            if (mediaIndex >= 0) {
+                return `${endpointBase}${url.pathname.slice(mediaIndex)}${url.search}`
+            }
+        }
+    } catch {
+        return input
+    }
+
+    return input
+}
+
 // ==================== 格式化辅助函数 ====================
 
 /**
  * 创建标准格式的 externalId
  */
 export function formatExternalId(
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW',
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'LTX' | 'WAN' | 'LATENTSYNC',
     type: 'VIDEO' | 'IMAGE' | 'BATCH',
     requestId: string,
     endpoint?: string,
@@ -977,6 +1171,24 @@ export function formatExternalId(
             throw new Error('OCOMPAT externalId requires modelKeyToken')
         }
         return `OCOMPAT:${type}:${providerToken}:${modelKeyToken}:${requestId}`
+    }
+    if (provider === 'LTX') {
+        if (!providerToken) {
+            throw new Error('LTX externalId requires providerToken')
+        }
+        return `LTX:${type}:${providerToken}:${requestId}`
+    }
+    if (provider === 'WAN') {
+        if (!providerToken) {
+            throw new Error('WAN externalId requires providerToken')
+        }
+        return `WAN:${type}:${providerToken}:${requestId}`
+    }
+    if (provider === 'LATENTSYNC') {
+        if (!providerToken) {
+            throw new Error('LATENTSYNC externalId requires providerToken')
+        }
+        return `LATENTSYNC:${type}:${providerToken}:${requestId}`
     }
     return `${provider}:${type}:${requestId}`
 }

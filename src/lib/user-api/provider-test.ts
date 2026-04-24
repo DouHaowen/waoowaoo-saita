@@ -20,6 +20,9 @@ export interface TestProviderResult {
 type PresetProviderType = 'ark' | 'google' | 'openrouter' | 'minimax' | 'fal' | 'vidu'
   | 'bailian'
   | 'siliconflow'
+  | 'ltx'
+  | 'wan'
+  | 'latentsync'
 type CompatibleProviderType = 'openai-compatible' | 'gemini-compatible'
 
 type TestProviderPayload = {
@@ -843,7 +846,7 @@ export async function testProviderConnection(payload: TestProviderPayload): Prom
   }
 
   // Compatible providers require baseUrl
-  if ((apiType === 'openai-compatible' || apiType === 'gemini-compatible') && !baseUrl) {
+  if ((apiType === 'openai-compatible' || apiType === 'gemini-compatible' || apiType === 'ltx' || apiType === 'wan' || apiType === 'latentsync') && !baseUrl) {
     return {
       success: false,
       steps: [{ name: 'models', status: 'fail', message: 'Missing baseUrl' }],
@@ -871,11 +874,111 @@ export async function testProviderConnection(payload: TestProviderPayload): Prom
       return testBailianProvider(apiKey)
     case 'siliconflow':
       return testSiliconFlowProvider(apiKey)
+    case 'ltx':
+      return testLtxProvider(baseUrl!, apiKey)
+    case 'latentsync':
+      return testLatentSyncProvider(baseUrl!, apiKey)
     default:
       return {
         success: false,
         steps: [{ name: 'models', status: 'fail', message: `Unsupported API type: ${apiType}` }],
       }
+  }
+}
+
+async function testLatentSyncProvider(baseUrl: string, apiKey: string): Promise<TestProviderResult> {
+  const normalizedBaseUrl = sanitizeBaseUrl(baseUrl)
+  try {
+    const response = await fetch(`${normalizedBaseUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(15_000),
+    })
+    const text = await response.text().catch(() => '')
+    if (!response.ok) {
+      return {
+        success: false,
+        steps: [{
+          name: 'models',
+          status: 'fail',
+          message: `Provider error (${response.status})`,
+          detail: text.slice(0, 500),
+        }],
+      }
+    }
+
+    return {
+      success: true,
+      steps: [
+        {
+          name: 'models',
+          status: 'pass',
+          message: 'LatentSync endpoint reachable',
+          detail: `${normalizedBaseUrl}/health`,
+        },
+        {
+          name: 'credits',
+          status: 'skip',
+          message: 'Local endpoint health check only',
+        },
+      ],
+    }
+  } catch (error) {
+    return {
+      success: false,
+      steps: [{
+        name: 'models',
+        status: 'fail',
+        message: toNetworkErrorMessage(error),
+      }],
+    }
+  }
+}
+
+async function testLtxProvider(baseUrl: string, apiKey: string): Promise<TestProviderResult> {
+  const normalizedBaseUrl = sanitizeBaseUrl(baseUrl)
+  try {
+    const response = await fetch(`${normalizedBaseUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(15_000),
+    })
+    const text = await response.text().catch(() => '')
+    if (!response.ok) {
+      return {
+        success: false,
+        steps: [{
+          name: 'models',
+          status: 'fail',
+          message: `Provider error (${response.status})`,
+          detail: text.slice(0, 500),
+        }],
+      }
+    }
+
+    return {
+      success: true,
+      steps: [
+        {
+          name: 'models',
+          status: 'pass',
+          message: 'LTX endpoint reachable',
+          detail: `${normalizedBaseUrl}/health`,
+        },
+        {
+          name: 'credits',
+          status: 'skip',
+          message: 'Health check only (generation is tested in workflow)',
+        },
+      ],
+    }
+  } catch (error) {
+    return {
+      success: false,
+      steps: [{
+        name: 'models',
+        status: 'fail',
+        message: toNetworkErrorMessage(error),
+      }],
+    }
   }
 }
 
